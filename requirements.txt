@@ -1,3 +1,5 @@
+Flask
+gunicorn
 jupyter
 dask==2.1.0
 gcsfs
