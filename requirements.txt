@@ -7,3 +7,7 @@ matplotlib
 papermill
 numpy
 pandas-datareader
+google-cloud-bigquery
+google-cloud-storage
+pandas
+seaborn

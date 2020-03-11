@@ -57,7 +57,7 @@ def execute_notebook(request):
     repo = request.args.get('repo')
     nb_path = request.args.get('nb_path')
     params = request.args.get('params')
-    
+
     execution_id = time.time()*1000
     download(execution_id, org, repo, nb_path, '/tmp',
              'master')
@@ -84,6 +84,18 @@ def papermill(input: str, output: str, params: str):
     if params is not None:
         d = json.loads(params)
         for param in d:
-            params_s = f'{params_s} -p {param} {d[param]}'
+            val = d[param]
+            if is_number(val):
+                params_s = f'{params_s} -p {param} {val}'
+            else:
+                params_s = f'{params_s} -p {param} "{val}"'
     cmd = f'papermill {input} {output} {params_s}'.strip()
     shcmd(cmd)
+
+
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except:
+        return False
