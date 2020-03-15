@@ -4,7 +4,8 @@ import time
 import subprocess
 import sys
 import shlex
-import time
+import boto3
+from datetime import datetime
 
 
 class cd:
@@ -21,17 +22,37 @@ class cd:
         os.chdir(self.savedPath)
 
 
-def download(execution_id: int, org: str, repo_name: str, file_path: str, target_dir: str, commit: str):
+def download(
+    execution_id: int,
+    org: str,
+    repo_name: str,
+    file_path: str,
+    target_dir: str,
+    out_file: str,
+    commit: str,
+):
     print(repo_name, file_path, target_dir, commit)
     token = os.getenv("GITHUB_TOKEN")
-    if token == None:
-        raise RuntimeError("Environment Var GITHUB_TOKEN does not exist")
+    if token is None:
+        print(
+            "Warning: Environment Var GITHUB_TOKEN does not exist, set this variable to access private GitHub repos"
+        )
 
-    cmd = "curl -H 'Authorization: token {token}' "\
-        "-H 'Accept: application/vnd.github.v3.raw' "\
-        "-L https://raw.githubusercontent.com/{org}/"\
-        "{repo_name}/{commit}/{file_path} -o nb_{execution_id}.ipynb".format(execution_id=execution_id, org=org, token=token,
-                                                                             repo_name=repo_name, commit=commit, file_path=file_path)
+    cmd = "curl"
+    if token is not None:
+        cmd = cmd + " -H 'Authorization: token {token}'"
+    cmd = (
+        cmd + " -H 'Accept: application/vnd.github.v3.raw' "
+        "-L https://raw.githubusercontent.com/{org}/"
+        "{repo_name}/{commit}/{file_path} -o {out_file}".format(
+            out_file=out_file,
+            org=org,
+            token=token,
+            repo_name=repo_name,
+            commit=commit,
+            file_path=file_path,
+        )
+    )
 
     if not os.path.isdir(target_dir):
         os.makedirs(target_dir)
@@ -41,11 +62,15 @@ def download(execution_id: int, org: str, repo_name: str, file_path: str, target
 
 
 def shcmd(cmd, ignore_error=False):
-    print('Doing:', cmd)
+    print("Doing:", cmd)
     try:
         output = subprocess.check_output(
-            cmd, stderr=subprocess.STDOUT, shell=True, timeout=900,
-            universal_newlines=True)
+            cmd,
+            stderr=subprocess.STDOUT,
+            shell=True,
+            timeout=900,
+            universal_newlines=True,
+        )
     except subprocess.CalledProcessError as exc:
         print("Status : FAIL", exc.returncode, exc.output)
     else:
@@ -53,43 +78,57 @@ def shcmd(cmd, ignore_error=False):
 
 
 def execute_notebook(request):
-    org = request.args.get('org')
-    repo = request.args.get('repo')
-    nb_path = request.args.get('nb_path')
-    params = request.args.get('params')
+    org = request.args.get("org")
+    repo = request.args.get("repo")
+    nb_path = request.args.get("nb_path")
+    params = request.args.get("params")
 
-    execution_id = time.time()*1000
-    download(execution_id, org, repo, nb_path, '/tmp',
-             'master')
+    execution_id = time.time() * 1000
+    base_file_name = f"{org}.{repo}.{nb_path}".replace("/", "_")
 
-    input = f'/tmp/nb_{execution_id}.ipynb'
-    output = f'/tmp/nb_{execution_id}_out.ipynb'
+    download(
+        execution_id,
+        org,
+        repo,
+        nb_path,
+        "/tmp",
+        f"{base_file_name}_{execution_id}.ipynb",
+        "master",
+    )
+
+    out_format = "ipynb"
+    input = f"/tmp/{base_file_name}_{execution_id}.{out_format}"
+    output = f"/tmp/{base_file_name}_{execution_id}_out.{out_format}"
+
     papermill(input, output, params)
     nbconvert(output)
 
+    output = output[: len(output) - 5] + "html"
+
+    store(output)
     return readHTML(output)
 
 
 def readHTML(file: str):
-    with open(file.replace('ipynb', 'html'), 'r') as content_file:
+    with open(file, "r") as content_file:
         return content_file.read()
 
 
 def nbconvert(report: str):
-    shcmd(f'jupyter nbconvert --to html {report}')
+    shcmd(f"jupyter nbconvert --to html {report}")
 
 
 def papermill(input: str, output: str, params: str):
-    params_s = ''
+    params_s = ""
     if params is not None:
         d = json.loads(params)
         for param in d:
             val = d[param]
             if is_number(val):
-                params_s = f'{params_s} -p {param} {val}'
+                params_s = f"{params_s} -p {param} {val}"
             else:
                 params_s = f'{params_s} -p {param} "{val}"'
-    cmd = f'papermill {input} {output} {params_s}'.strip()
+    cmd = f"papermill {input} {output} {params_s}".strip()
     shcmd(cmd)
 
 
@@ -99,3 +138,18 @@ def is_number(s):
         return True
     except:
         return False
+
+
+def store(output_filename: str):
+    bucket_name = os.getenv("S3_BUCKET")
+    if bucket_name is None:
+        print(
+            "Warning: Environment Var S3_BUCKET does not exist, set this variable to save generated reports on S3"
+        )
+        return
+
+    d = datetime.now()
+    obj_name = f'nb_to_html/{d.year}/{d.month}/{output_filename.split("/tmp/")[1]}'
+    s3 = boto3.client("s3")
+    with open(output_filename, "rb") as f:
+        s3.upload_fileobj(f, bucket_name, obj_name)
