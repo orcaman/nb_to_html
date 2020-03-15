@@ -1,5 +1,3 @@
-Flask
-gunicorn
 jupyter
 dask==2.1.0
 gcsfs
@@ -11,3 +9,7 @@ google-cloud-bigquery
 google-cloud-storage
 pandas
 seaborn
+Flask
+gunicorn
+boto3
+redis

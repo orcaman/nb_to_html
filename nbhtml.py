@@ -40,7 +40,7 @@ def download(
 
     cmd = "curl"
     if token is not None:
-        cmd = cmd + " -H 'Authorization: token {token}'"
+        cmd = cmd + f" -H 'Authorization: token {token}'"
     cmd = (
         cmd + " -H 'Accept: application/vnd.github.v3.raw' "
         "-L https://raw.githubusercontent.com/{org}/"
