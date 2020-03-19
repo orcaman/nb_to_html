@@ -1,7 +1,6 @@
 import os
 import nbhtml
 import redis
-import hashlib
 
 from flask import Flask
 from flask import request
@@ -21,14 +20,18 @@ app = Flask(__name__)
 
 @app.route("/nb_to_html")
 def nb_to_html_request():
-    hash_object = hashlib.sha1(request.url.encode("utf-8"))
-    key = f"nb_to_html:{hash_object.hexdigest()}"
-    no_cache = request.args.get("no_cache")
+    print(f"request url: {request.url}")
 
-    # cache is disabled, execute notebook
-    if no_cache is not None:
-        print("cache is disable via query string")
-        return nbhtml.execute_notebook(request)
+    # download the notebook first
+    downloaded_nb_path = nbhtml.download_notebook_and_return_path(request)
+    print(f"notebook downloaded to: {downloaded_nb_path}")
+
+    # hash the notebook's content to see if we have ran this one before
+    nb_content_hash = nbhtml.hash_file(downloaded_nb_path)
+    print(f"notebook content hash: {nb_content_hash}")
+
+    # use a combination of the notebok content and the runtime parameters as cache key
+    key = nbhtml.hash_string(f'{request.url.encode("utf-8")}-{nb_content_hash}')
 
     try:
         print(f"try to get cache key: {key}")
@@ -39,14 +42,15 @@ def nb_to_html_request():
 
     # cache is enabled but key is not found
     if cached is None:
-        data = nbhtml.execute_notebook(request)
+        data = nbhtml.execute_notebook(downloaded_nb_path, request)
         try:
             redis_client.setex(key, cache_time, data)
+            print(f"cache key set successfully: {key}")
         except:
             print(f"cannot set cache key: {key}")
     else:
         # data was read from cache
-        print("data was read from cache")
+        print(f"data was read from cache for key: {key}")
         data = cached
 
     return data

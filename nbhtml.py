@@ -5,6 +5,7 @@ import subprocess
 import sys
 import shlex
 import boto3
+import hashlib
 from datetime import datetime
 
 
@@ -77,7 +78,7 @@ def shcmd(cmd, ignore_error=False):
         print("Output: \n{}\n".format(output))
 
 
-def execute_notebook(request):
+def download_notebook_and_return_path(request) -> str:
     org = request.args.get("org")
     repo = request.args.get("repo")
     nb_path = request.args.get("nb_path")
@@ -98,6 +99,20 @@ def execute_notebook(request):
 
     out_format = "ipynb"
     input = f"/tmp/{base_file_name}_{execution_id}.{out_format}"
+    return input
+
+
+def execute_notebook(downloaded_nb_path: str, request):
+    org = request.args.get("org")
+    repo = request.args.get("repo")
+    nb_path = request.args.get("nb_path")
+    params = request.args.get("params")
+
+    execution_id = time.time() * 1000
+    base_file_name = f"{org}.{repo}.{nb_path}".replace("/", "_")
+
+    out_format = "ipynb"
+    input = downloaded_nb_path
     output = f"/tmp/{base_file_name}_{execution_id}_out.{out_format}"
 
     papermill(input, output, params)
@@ -153,3 +168,17 @@ def store(output_filename: str):
     s3 = boto3.client("s3")
     with open(output_filename, "rb") as f:
         s3.upload_fileobj(f, bucket_name, obj_name)
+
+
+def hash_file(file_path: str) -> str:
+    """
+    return sha1 hash of the file
+    """
+    with open(file_path, "r") as content_file:
+        hash_object = hashlib.sha1(content_file.read().encode("utf-8"))
+        return hash_object.hexdigest()
+
+
+def hash_string(str_to_hash: str) -> str:
+    hash_object = hashlib.sha1(str_to_hash.encode("utf-8"))
+    return hash_object.hexdigest()

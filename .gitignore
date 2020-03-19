@@ -5,3 +5,4 @@
 *.pyo
 *.pyd
 __pycache__
+Dockerfile_Full

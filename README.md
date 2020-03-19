@@ -42,6 +42,19 @@ In dev, run the app with docker:
 docker run --rm -ti -p 8080:8080 -e GITHUB_TOKEN -e GOOGLE_APPLICATION_CREDENTIALS_JSON -e PORT -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e S3_BUCKET -e REDIS_PASSWORD -e REDIS_HOST -e REDIS_PORT nb_to_html
 ```
 
+## adding dependencies
+To add dependencies (e.g. a python library you need in your notebook), either pip install it via a notebook cell like so:
+
+```
+!pip install bokeh
+```
+
+Or, you could add it to the `requirements.txt` file, that already contains a few commonly used libraries (pandas, numpy, boto3, seaborn, etc.).
+
+
+## server-side caching
+
+The server supports caching the results of notebook execution on redis. If you choose to set up the redis configuruation as explained below, the server will hash the contents of the notebook in combination with the runtime parameters and use this hash as a cache key to use a previous execution.
 
 ### Env vars / server configuration
 
