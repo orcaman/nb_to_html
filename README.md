@@ -39,6 +39,10 @@ Under-the-hood, nb_to_html uses [papermill](https://github.com/nteract/papermill
 In dev, run the app with docker:
 
 ```
+docker build -t nb_to_html .
+```
+
+```
 docker run --rm -ti -p 8080:8080 -e GITHUB_TOKEN -e GOOGLE_APPLICATION_CREDENTIALS_JSON -e PORT -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e S3_BUCKET -e REDIS_PASSWORD -e REDIS_HOST -e REDIS_PORT nb_to_html
 ```
 
@@ -61,26 +65,9 @@ The server supports caching the results of notebook execution on redis. If you c
 All configuration values are *optional*:
 - GITHUB_TOKEN (optional, a GitHub API access token to access private repos)
 - GOOGLE_APPLICATION_CREDENTIALS_JSON (optional, if your notebook talks to a GCP service like Google BigQuery). Setting this varaible with the contents of the GOOGLE_APPLICATION_CREDENTIALS file will allow you to read those credentials from notebooks without having to store the credentials anywhere else
-- S3_Bucket (optional, an S3 bucket name). If supplied, every report will be saved on the bucket under the following format: s3://<S3_BUCKET>/nb_to_html/<yyyy>/<MM>/report_name_yyyy_mm_dd_hh:ss.html
+- S3_Bucket (optional, an S3 bucket name). If supplied, every report will be saved on the bucket under the following format: s3://<S3_BUCKET>//nb_to_html//<yyyy>//<MM>//report_name_yyyy_mm_dd_hh:ss.html
 - AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (optional, AWS credentials if S3 storage is desired)
 - REDIS_PASSWORD, REDIS_HOST and REDIS_PORT if redis caching is desired
-
-## Building the project with Docker
-To speed up development, there is a base docker image containing the pip install stage. This means that code
-changes can be tested quickly by building a dockerfile that only copies the app and runs it after all deps
-have already been installed.
-
-Edit dependencies on the `BaseDockerFile` and build it like so:
-
-```
-docker build -t nb_to_html_base -f BaseDockerfile .
-```
-
-Then, after any code change, build just the project, without having to wait for the pip install step:
-
-```
-docker build -t nb_to_html .
-```
 
 And run the app using the docker run command above.
 
