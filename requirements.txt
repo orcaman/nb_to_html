@@ -1,5 +1,5 @@
 jupyter
-dask==2.1.0
+dask==2021.10.0
 gcsfs
 matplotlib
 papermill
